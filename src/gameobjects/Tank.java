@@ -4,7 +4,7 @@ package gameobjects;
  *
  * @author aaron
  */
-public class Tank extends Entity implements Moveable{
+public class Tank extends Entity{
     
     protected int fuelLevel;
     protected int healthLevel;
@@ -18,8 +18,21 @@ public class Tank extends Entity implements Moveable{
         super(xCoordinate, yCoordinate);
     }
     
-    @Override
-    public void move(){
-        
+    public void cw(){
+        orientation -= 1;
+        if(orientation < 0){
+            orientation += 4;
+        }
+    }
+    
+    public void ccw(){
+        orientation += 1;
+        if(orientation > 3){
+            orientation -= 4;
+        }
+    }
+    
+    public String playerOutput(){
+        return super.playerOutput("TANK", fuelLevel, healthLevel, orientation, speed, remainingShots);
     }
 }

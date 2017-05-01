@@ -42,7 +42,7 @@ public abstract class Entity {
         this.yCoordinate = yCoordinate;
     }
     
-    public String playerOutput(String type, int a1, int a2, int a3, int a4){
-        return type + " " + id + " " + xCoordinate + " " + yCoordinate + " " + a1 + " " + a2 + " " + a3 + " " + a4;
+    protected String playerOutput(String type, int a1, int a2, int a3, int a4, int a5){
+        return type + " " + id + " " + xCoordinate + " " + yCoordinate + " " + a1 + " " + a2 + " " + a3 + " " + a4 + " " + a5;
     }
 }

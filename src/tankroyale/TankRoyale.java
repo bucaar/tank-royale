@@ -12,11 +12,7 @@ import java.util.Properties;
  *
  * @author aaron
  */
-public class TankRoyale {
-    
-    protected InputStream in;
-    protected OutputStream out;
-    
+public class TankRoyale {    
     protected ArrayList<Entity> entities;
     protected ArrayList<Player> players;
     
@@ -27,10 +23,7 @@ public class TankRoyale {
     
     protected final int NUM_PLAYERS;
     
-    public TankRoyale(InputStream in, OutputStream out){
-        this.in = in;
-        this.out = out;
-        
+    public TankRoyale(){
         Properties prop = new Properties();
         InputStream propInput = null;
         
@@ -60,7 +53,7 @@ public class TankRoyale {
         players = new ArrayList<>();
     
         for(int p=0;p<NUM_PLAYERS;p++){
-            Player player = new Player();
+            Player player = new Player("Test");
             
             for(int t=0;t<NUM_TANKS;t++){
                 Tank tank = new Tank(0, 0);
@@ -70,24 +63,6 @@ public class TankRoyale {
     
     public void playGame(){
         
-    }
-    
-    private void print(String message){
-        if(out == null){
-            return;
-        }
-        
-        try{
-            out.write(message.getBytes());
-            out.flush();
-        }
-        catch(IOException e){
-            out = null;
-        }
-    }
-    
-    private void println(String message){
-        print(message + "\n");
     }
     
     private int getPropInt(Properties p, String name, int def){
@@ -100,7 +75,7 @@ public class TankRoyale {
     }
     
     public static void main(String[] args) {
-        TankRoyale game = new TankRoyale(System.in, System.out);
+        TankRoyale game = new TankRoyale();
         game.setupGame();
         game.playGame();
     }
