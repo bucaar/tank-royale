@@ -19,9 +19,7 @@ public class Queue<T>{
     
     private int size;
     
-    public Queue(){
-        
-    }
+    public Queue(){ }
     
     public void enqueue(T elem){
         Node<T> n = new Node(elem);

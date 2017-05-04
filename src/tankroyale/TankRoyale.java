@@ -2,6 +2,7 @@ package tankroyale;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.ArrayList;
 
 /**
  *
@@ -9,6 +10,9 @@ import java.net.ServerSocket;
  */
 public class TankRoyale{
     protected ServerSocket listener;
+    protected final ArrayList<Player> players = new ArrayList<>();
+    protected final int numberOfPlayers = 2;
+    
     
     public TankRoyale(){
         try{
@@ -25,24 +29,26 @@ public class TankRoyale{
             return;
         }
         
-        System.out.println("Starting game...");
-        
-        Player player1 = null;
-        Player player2 = null;
+        System.out.println("Starting Tank Royale");
         
         try{
-            player1 = new Player(listener.accept(), this);
-            player2 = new Player(listener.accept(), this);
-            
-            player1.start();
-            player2.start();
+            for(int i=0;i<numberOfPlayers;i++){
+                players.add( new Player(listener.accept(), this));
+            }
+            for(Player p : players){
+                p.start();
+            }
         }
         catch(IOException e){
             System.out.println("Could not connect to player.");
+            deactivatePlayers();
+            return;
         }
         
-        while(player1.active() && player2.active()){
-            while(player1.messageSize() == 0 || player2.messageSize() == 0){
+        //game loop
+        while(allPlayersActive()){
+            //wait for player's input
+            while(allPlayersActive() && !allPlayersHaveMessage()){
                 synchronized(this){
                     try{
                         this.wait();
@@ -52,33 +58,65 @@ public class TankRoyale{
                 }
             }
             
-            String p1Message = player1.getMessage();
-            String p2Message = player2.getMessage();
-            
-            if(p1Message == null){
-                player1.deactivate();
-            }
-            if(p2Message == null){
-                player2.deactivate();
+            if(!allPlayersActive()){
+                break;
             }
             
-            System.out.println("Player 1: " + p1Message);
-            System.out.println("Player 2: " + p2Message);
+            processPlayerMessages();
         }
         
         System.out.println("End of Tank Royale!");
-        if(player1 != null){
-            player1.deactivate();
+    }
+    
+    public void processPlayerMessages(){
+        for(Player p : players){
+            String message = p.getMessage();
+            System.out.println("Player " + p.getUserId()+ ": " + message);
         }
-        
-        if(player2 != null){
-            player2.deactivate();
+    }
+    
+    public boolean allPlayersActive(){
+        for(Player p : players){
+            if(!p.active()){
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    public boolean allPlayersHaveMessage(){
+        for(Player p : players){
+            if(p.messageSize() == 0){
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    public void stop(){
+        if(listener != null){
+            try{
+                listener.close();
+            }
+            catch(IOException e){
+                System.out.println("Could not close socket.");
+            }
+        }
+        deactivatePlayers();
+    }
+    
+    public void deactivatePlayers(){
+        for(Player p : players){
+            if(p != null){
+                p.deactivate();
+            }
         }
     }
     
     public static void main(String[] args) throws IOException{
         TankRoyale game = new TankRoyale();
         game.start();
+        game.stop();
     }
     
 }

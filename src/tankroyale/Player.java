@@ -13,7 +13,7 @@ import utils.Queue;
  */
 public class Player extends Thread{
     
-    private TankRoyale game;
+    private final TankRoyale game;
     
     private Socket socket;
     private boolean active;
@@ -39,7 +39,7 @@ public class Player extends Thread{
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
             
-            output.println("WELCOME");
+            this.println("WELCOME");
         }
         catch (IOException e) {
             active = false;
@@ -50,32 +50,44 @@ public class Player extends Thread{
     @Override
     public void run(){
         try{
-            output.println("START");
+            //display to the player the game has started
+            this.println("START");
             
             while(active){
+                //read from the player
                 String in = input.readLine();
+                //if we didnt get anything, disconnect the player.
                 if(in == null){
-                    active = false;
+                    this.deactivate();
                     synchronized(game){
+                        //notify the game of a change
                         game.notifyAll();
                     }
                     break;
                 }
                 
+                //trim the input
                 in = in.trim();
                 
+                System.out.println(" <== Player " + id + ": " + in);
+                
+                //if they typed quit, then stop them
                 if(in.toLowerCase().startsWith("quit")){
-                    active = false;
+                    this.deactivate();
                 }
                 
+                //enqueue their message
                 synchronized(commands){
                     commands.enqueue(in);
                 }
                 
+                //wake the game for processing
                 synchronized(game){
                     game.notify();
                 }
             }
+            
+            this.println("STOP");
         }
         catch(IOException e){
             System.out.println("Player has died: " + e);
@@ -87,6 +99,7 @@ public class Player extends Thread{
                     active = false;
                 }
             } catch (IOException e) {
+                System.out.println("Could not close the socket");
             }
         }
     }
@@ -114,6 +127,8 @@ public class Player extends Thread{
     }
     
     public String getMessage(){
-        return commands.dequeue();
+        synchronized(commands){
+            return commands.dequeue();
+        }
     }
 }
