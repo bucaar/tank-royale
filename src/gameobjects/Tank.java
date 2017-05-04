@@ -13,9 +13,11 @@ public class Tank extends Entity{
     protected int orientation;
     protected int speed;
     
+    protected int owner;
     
-    public Tank(int xCoordinate, int yCoordinate){
+    public Tank(int xCoordinate, int yCoordinate, int owner){
         super(xCoordinate, yCoordinate);
+        this.owner = owner;
     }
     
     public void cw(){
