@@ -18,8 +18,8 @@ public class TankRoyale{
     private final ArrayList<Player> players;
     private final int numberOfPlayers = 2;
     
-    private final int boardWidth = 25;
-    private final int boardHeight = 25;
+    private final int boardWidth = 10;
+    private final int boardHeight = 10;
     
     private final Pattern fasterPattern = Pattern.compile("FASTER(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     private final Pattern slowerPattern = Pattern.compile("SLOWER(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
@@ -98,6 +98,8 @@ public class TankRoyale{
         
         //game loop
         while(allPlayersActive()){
+            //TODO: output the game turn
+            
             //wait for every player's input
             while(allPlayersActive() && !allPlayersHaveMessage()){
                 synchronized(this){
@@ -114,27 +116,19 @@ public class TankRoyale{
                 break;
             }
             
-            //process the messages - reads and sets the action
-            processPlayerMessages();
-            
-            //execute the messages - applys the action
-            executePlayerMessages();
-            
-            //move the tanks
-            moveTanks();
-            
-            //rotate the tanks
-            rotateTanks();
+            //complete the rest of this turn
+            doTurn();
         }
         
         System.out.println("End of Tank Royale!");
     }
     
-    public void processPlayerMessages(){
+    public void doTurn(){
+        //read in the players' messages and set the action
         for(Player p : players){
             Tank tank = p.getTank();
             String message = p.getMessage();
-            
+            System.out.println("Player " + p.getUserId() + ": " + message);
             Matcher matchFaster = fasterPattern.matcher(message);
             Matcher matchSlower = slowerPattern.matcher(message);
             Matcher matchCW = cwPattern.matcher(message);
@@ -156,40 +150,102 @@ public class TankRoyale{
                 tank.rotateCCW();
                 tank.setMessage(matchCCW.group("message"));
             }
+            //TODO: FIRE, REVERSE
         }
-    }
-    
-    public void executePlayerMessages(){
-        for(Player p : players){
-            Tank tank = p.getTank();
-            
-            tank.applyAction();
-        }
+        
+        //process other commands not handled by moving and turning
+        //TODO: commands for FIRE, REVERSE, etc.
+        
+        //handle moving
+        moveTanks();
+        
+        //display map
+        displayMap();
     }
     
     public void moveTanks(){
-        for(int i=0;i<Tank.MAX_SPEED;i++){
+        for(int i=1;i<=Tank.MAX_SPEED;i++){
+            ArrayList<Tank> tanks = new ArrayList<>();
+            
             for(Player p : players){
                 Tank tank = p.getTank();
+                tanks.add(tank);
+                
                 int newX = tank.getxCoordinate();
                 int newY = tank.getyCoordinate();
                 int o = tank.getOrientation();
-
-                int[] move = Tank.DIRECTIONS[o];
-                newX += move[0];
-                newY += move[1];
                 
                 tank.setNewXCoordinate(newX);
                 tank.setNewYCoordinate(newY);
                 
-                //TODO: just set new x and y, need to check collisions
-                //and then eventually apply the new x and y
+                if(i > tank.getSpeed()){
+                    continue;
+                }
+                
+                int[] move = Tank.DIRECTIONS[o];
+                newX += move[0];
+                newY += move[1];
+                
+                if(newX >= 0 && newX < boardWidth &&
+                        newY >= 0 && newY < boardHeight){
+                    tank.setNewXCoordinate(newX);
+                    tank.setNewYCoordinate(newY);
+                }
+                else{
+                    tank.setSpeed(0);
+                }
+            }
+            
+            //see if we have any collisions caused by turn
+            ArrayList<Tank> collisions = new ArrayList<>();
+            
+            //check every tank with every other tank for the same new coordinates.
+            for(int a=0;a<tanks.size();a++){
+                for(int b=a+1;b<tanks.size();b++){
+                    Tank t1 = tanks.get(a);
+                    Tank t2 = tanks.get(b);
+                    
+                    if(t1.getNewXCoordinate() == t2.getNewXCoordinate() &&
+                            t1.getNewYCoordinate() == t2.getNewYCoordinate()){
+                        collisions.add(t1);
+                        collisions.add(t2);
+                    }
+                }
+            }
+            
+            //undo any colliding tanks
+            for(Tank t : collisions){
+                t.setNewXCoordinate(t.getxCoordinate());
+                t.setNewYCoordinate(t.getyCoordinate());
+                t.setSpeed(0);
+            }
+            
+            //update tank's positions
+            for(Tank t : tanks){
+                t.setxCoordinate(t.getNewXCoordinate());
+                t.setyCoordinate(t.getNewYCoordinate());
             }
         }
     }
     
-    public void rotateTanks(){
+    public void displayMap(){
+        char[][] map = new char[boardWidth][boardHeight];
+        for(int x=0;x<boardWidth;x++){
+            for(int y=0;y<boardHeight;y++){
+                map[x][y] = '.';
+            }
+        }
+        for(Player p : players){
+            Tank t = p.getTank();
+            map[t.getxCoordinate()][t.getyCoordinate()] = String.valueOf(p.getUserId()).charAt(0);
+        }
         
+        for(int y=0;y<boardHeight;y++){
+            for(int x=0;x<boardWidth;x++){
+                System.out.print(map[x][y]);
+            }
+            System.out.println("");
+        }
     }
     
     public boolean allPlayersActive(){

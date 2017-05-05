@@ -41,43 +41,38 @@ public class Tank extends Entity{
         this.fuelLevel = 100;
         this.healthLevel = 100;
         this.remainingShots = 25;
-    }
-    
-    public void applyAction(){
-        switch(action){
-            case FASTER:
-                if(speed < Tank.MAX_SPEED){
-                    speed++;
-                }
-                break;
-            case SLOWER:
-                if(speed > 0){
-                    speed--;
-                }
-                break;
-            case CW:
-                orientation = (orientation - 1) % 4;
-                break;
-            case CCW:
-                orientation = (orientation + 1) % 4;
-                break;
-        }
+        
+        this.speed = 0;
     }
     
     public void rotateCW(){
         this.action = Action.CW;
+        this.orientation--;
+        if(this.orientation == -1){
+            this.orientation = 3;
+        }
     }
     
     public void rotateCCW(){
         this.action = Action.CCW;
+        this.orientation++;
+        if(this.orientation == 4){
+            this.orientation = 0;
+        }
     }
     
     public void faster(){
         this.action = Action.FASTER;
+        if(this.speed < MAX_SPEED){
+            speed++;
+        }
     }
     
     public void slower(){
         this.action = Action.SLOWER;
+        if(this.speed > 0){
+            speed--;
+        }
     }
     
     public String getMessage(){
@@ -115,12 +110,10 @@ public class Tank extends Entity{
     public int getSpeed() {
         return speed;
     }
-
+    
     public void setSpeed(int speed) {
         this.speed = speed;
     }
-    
-    
     
     public String toPlayerOutput(){
         return super.playerOutput(fuelLevel, healthLevel, orientation, speed, remainingShots);
