@@ -15,8 +15,16 @@ public class Dust extends Entity{
         this.turnsLeft = 3;
     }
     
+    public void settle(){
+        turnsLeft-=1;
+    }
+    
+    public boolean isSettled(){
+        return turnsLeft == 0;
+    }
+    
     public String toPlayerOutput(){
-        return "";
+        return super.playerOutput(turnsLeft);
     }
     
     

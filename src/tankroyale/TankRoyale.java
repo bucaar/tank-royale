@@ -140,19 +140,35 @@ public class TankRoyale{
         
         //the output
         StringBuilder out = new StringBuilder();
-        //add to the output
+        
+        //add to the output - only visible entities
+        int sx = source.getxCoordinate();
+        int sy = source.getyCoordinate();
+        boolean first = true;
         for(int i=0;i<go.size();i++){
             Entity e = go.get(i);
+            
+            if(hasObstacle(sx, sy, e.getxCoordinate(), e.getyCoordinate())){
+                continue;
+            }
+            
             String data = e.toPlayerOutput();
-            if(i>0){
+            if(!first){
                 out.append("\n");
             }
             out.append(data);
+            first = false;
         }
         return out.toString();
     }
     
     public boolean hasObstacle(int x1, int y1, int x2, int y2){
+        //same point, no obstacle
+        if(x1 == x2 && y1 == y2){
+            return false;
+        }
+        
+        //TODO: obstacle detection
         return false;
     }
     
@@ -169,7 +185,9 @@ public class TankRoyale{
         for(Player p : players){
             Tank tank = p.getTank();
             String message = p.getMessage();
+            
             System.out.println("Player " + p.getUserId() + ": " + message);
+            
             Matcher matchFaster = fasterPattern.matcher(message);
             Matcher matchSlower = slowerPattern.matcher(message);
             Matcher matchCW = cwPattern.matcher(message);
@@ -203,7 +221,7 @@ public class TankRoyale{
         //handle rotating
         rotateTanks();
         
-        //display map
+        //display map to console
         displayMap();
     }
     
