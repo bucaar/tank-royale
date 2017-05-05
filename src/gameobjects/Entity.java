@@ -10,7 +10,13 @@ public abstract class Entity {
     protected int xCoordinate;
     protected int yCoordinate;
     
+    protected Type type;
+    
     private static int idCounter = 0;
+    
+    public static enum Type{
+        TANK, SHOT, DUST
+    }
     
     public Entity(int xCoordinate, int yCoordinate){
         this.id = idCounter++;
@@ -42,12 +48,11 @@ public abstract class Entity {
         this.yCoordinate = yCoordinate;
     }
     
-    protected String playerOutput(String type, int... a){
+    protected String playerOutput(int... a){
         StringBuilder args = new StringBuilder();
         for(int i=0;i<a.length;i++){
-            args.append(" ");
-            args.append(a[i]);
+            args.append(" ").append(a[i]);
         }
-        return type + " " + id + " " + xCoordinate + " " + yCoordinate + args;
+        return type.name() + " " + id + " " + xCoordinate + " " + yCoordinate + args;
     }
 }

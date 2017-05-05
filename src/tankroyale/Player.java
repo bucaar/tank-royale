@@ -1,5 +1,6 @@
 package tankroyale;
 
+import gameobjects.Tank;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -14,6 +15,7 @@ import utils.Queue;
 public class Player extends Thread{
     
     private final TankRoyale game;
+    private Tank tank;
     
     private Socket socket;
     private boolean active;
@@ -27,19 +29,17 @@ public class Player extends Thread{
     
     public Player(Socket socket, TankRoyale game){
         this.game = game;
-        
-        this.id = idCounter++;
         this.socket = socket;
+        this.id = idCounter++;
         
         commands = new Queue<>();
+        active = true;
         
         try {
-            active = true;
-            
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
             
-            this.println("WELCOME");
+            this.println("HELLO");
         }
         catch (IOException e) {
             active = false;
@@ -56,12 +56,13 @@ public class Player extends Thread{
             while(active){
                 //read from the player
                 String in = input.readLine();
+                
                 //if we didnt get anything, disconnect the player.
                 if(in == null){
                     this.deactivate();
                     synchronized(game){
                         //notify the game of a change
-                        game.notifyAll();
+                        game.notify();
                     }
                     break;
                 }
@@ -69,14 +70,12 @@ public class Player extends Thread{
                 //trim the input
                 in = in.trim();
                 
-                System.out.println(" <== Player " + id + ": " + in);
-                
                 //if they typed quit, then stop them
                 if(in.toLowerCase().startsWith("quit")){
                     this.deactivate();
                 }
                 
-                //enqueue their message
+                //otherwise enqueue their message
                 synchronized(commands){
                     commands.enqueue(in);
                 }
@@ -99,13 +98,21 @@ public class Player extends Thread{
                     active = false;
                 }
             } catch (IOException e) {
-                System.out.println("Could not close the socket");
+                System.out.println("Could not close the socket?");
             }
         }
     }
     
     public int getUserId(){
         return id;
+    }
+    
+    public Tank getTank(){
+        return tank;
+    }
+    
+    public void setTank(Tank t){
+        this.tank = t;
     }
     
     public void println(String message){

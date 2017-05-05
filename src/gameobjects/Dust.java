@@ -10,6 +10,9 @@ public class Dust extends Entity{
     
     public Dust(int xCoordinate, int yCoordinate) {
         super(xCoordinate, yCoordinate);
+        this.type = Type.DUST;
+        
+        this.turnsLeft = 3;
     }
     
     
