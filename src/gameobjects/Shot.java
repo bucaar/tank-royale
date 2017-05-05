@@ -17,5 +17,7 @@ public class Shot extends Entity{
         this.turnsLeft = 4;
     }
     
-    
+    public String toPlayerOutput(){
+        return "";
+    }
 }

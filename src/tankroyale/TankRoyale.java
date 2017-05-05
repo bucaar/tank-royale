@@ -1,5 +1,6 @@
 package tankroyale;
 
+import gameobjects.Entity;
 import gameobjects.Tank;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -25,6 +26,8 @@ public class TankRoyale{
     private final Pattern slowerPattern = Pattern.compile("SLOWER(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     private final Pattern cwPattern = Pattern.compile("CW(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     private final Pattern ccwPattern = Pattern.compile("CCW(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
+    
+    public static int idCounter = 0;
     
     public ServerSocket getListener() {
         return listener;
@@ -79,7 +82,8 @@ public class TankRoyale{
                 //create a tank
                 int x = Rand.randInt(1, boardWidth-1);
                 int y = Rand.randInt(1, boardHeight-1);
-                Tank tank = new Tank(x, y, p.getUserId());
+                int o = Rand.randInt(0, 3);
+                Tank tank = new Tank(x, y, o, p.getUserId());
                 
                 //give the player the tank
                 p.setTank(tank);
@@ -99,6 +103,7 @@ public class TankRoyale{
         //game loop
         while(allPlayersActive()){
             //TODO: output the game turn
+            givePlayersGameState();
             
             //wait for every player's input
             while(allPlayersActive() && !allPlayersHaveMessage()){
@@ -121,6 +126,42 @@ public class TankRoyale{
         }
         
         System.out.println("End of Tank Royale!");
+    }
+    
+    public String getGameState(Tank source){
+        ArrayList<Entity> go = new ArrayList<>();
+        //all the tanks
+        for(Player player : players){
+            Tank tank = player.getTank();
+            go.add(tank);
+        }
+        //TODO add more 
+        //eg. DUST, SHOT, etc.
+        
+        //the output
+        StringBuilder out = new StringBuilder();
+        //add to the output
+        for(int i=0;i<go.size();i++){
+            Entity e = go.get(i);
+            String data = e.toPlayerOutput();
+            if(i>0){
+                out.append("\n");
+            }
+            out.append(data);
+        }
+        return out.toString();
+    }
+    
+    public boolean hasObstacle(int x1, int y1, int x2, int y2){
+        return false;
+    }
+    
+    public void givePlayersGameState(){
+        for(Player p : players){
+            Tank t = p.getTank();
+            String gameInfoForPlayer = getGameState(t);
+            p.println(gameInfoForPlayer);
+        }
     }
     
     public void doTurn(){
@@ -158,6 +199,9 @@ public class TankRoyale{
         
         //handle moving
         moveTanks();
+        
+        //handle rotating
+        rotateTanks();
         
         //display map
         displayMap();
@@ -225,6 +269,34 @@ public class TankRoyale{
                 t.setxCoordinate(t.getNewXCoordinate());
                 t.setyCoordinate(t.getNewYCoordinate());
             }
+        }
+    }
+    
+    public void rotateTanks(){
+        for(Player p : players){
+            Tank tank = p.getTank();
+            int o = tank.getOrientation();
+            
+            Tank.Action a = tank.getAction();
+            switch(a){
+                case CW:
+                    o-=1;
+                    break;
+                case CCW:
+                    o+=1;
+                    break;
+                default:
+                    break;
+            }
+            
+            if(o==-1){
+                o = 3;
+            }
+            else if(o == 4){
+                o = 0;
+            }
+            
+            tank.setOrientation(o);
         }
     }
     

@@ -30,10 +30,10 @@ public class Tank extends Entity{
     };
     
     public static enum Action {
-        FASTER, SLOWER, CW, CCW
+        FASTER, SLOWER, CW, CCW, WAIT
     }
     
-    public Tank(int xCoordinate, int yCoordinate, int owner){
+    public Tank(int xCoordinate, int yCoordinate, int orientation, int owner){
         super(xCoordinate, yCoordinate);
         this.type = Type.TANK;
         this.owner = owner;
@@ -43,22 +43,18 @@ public class Tank extends Entity{
         this.remainingShots = 25;
         
         this.speed = 0;
+        this.orientation = orientation;
+        
+        this.message = "";
+        this.action = Action.WAIT;
     }
     
     public void rotateCW(){
         this.action = Action.CW;
-        this.orientation--;
-        if(this.orientation == -1){
-            this.orientation = 3;
-        }
     }
     
     public void rotateCCW(){
         this.action = Action.CCW;
-        this.orientation++;
-        if(this.orientation == 4){
-            this.orientation = 0;
-        }
     }
     
     public void faster(){
@@ -115,7 +111,11 @@ public class Tank extends Entity{
         this.speed = speed;
     }
     
+    public Action getAction(){
+        return action;
+    }
+    
     public String toPlayerOutput(){
-        return super.playerOutput(fuelLevel, healthLevel, orientation, speed, remainingShots);
+        return super.playerOutput(fuelLevel, healthLevel, orientation, speed, remainingShots, owner);
     }
 }

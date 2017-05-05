@@ -21,7 +21,6 @@ public class Player extends Thread{
     private boolean active;
     
     private int id;
-    private static int idCounter = 0;
     private BufferedReader input;
     private PrintWriter output;
     
@@ -30,7 +29,7 @@ public class Player extends Thread{
     public Player(Socket socket, TankRoyale game){
         this.game = game;
         this.socket = socket;
-        this.id = idCounter++;
+        this.id = TankRoyale.idCounter++;
         
         commands = new Queue<>();
         active = true;
@@ -39,7 +38,7 @@ public class Player extends Thread{
             input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             output = new PrintWriter(socket.getOutputStream(), true);
             
-            this.println("HELLO");
+            this.println("HELLO " + id);
         }
         catch (IOException e) {
             active = false;

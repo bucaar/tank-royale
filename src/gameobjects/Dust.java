@@ -15,5 +15,9 @@ public class Dust extends Entity{
         this.turnsLeft = 3;
     }
     
+    public String toPlayerOutput(){
+        return "";
+    }
+    
     
 }

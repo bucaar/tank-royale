@@ -1,5 +1,7 @@
 package gameobjects;
 
+import tankroyale.TankRoyale;
+
 /**
  *
  * @author aaron
@@ -12,14 +14,12 @@ public abstract class Entity {
     
     protected Type type;
     
-    private static int idCounter = 0;
-    
     public static enum Type{
         TANK, SHOT, DUST
     }
     
     public Entity(int xCoordinate, int yCoordinate){
-        this.id = idCounter++;
+        this.id = TankRoyale.idCounter++;
         this.xCoordinate = xCoordinate;
         this.yCoordinate = yCoordinate;
     }
@@ -47,6 +47,8 @@ public abstract class Entity {
     public void setyCoordinate(int yCoordinate) {
         this.yCoordinate = yCoordinate;
     }
+    
+    public abstract String toPlayerOutput();
     
     protected String playerOutput(int... a){
         StringBuilder args = new StringBuilder();
