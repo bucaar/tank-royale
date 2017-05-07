@@ -467,22 +467,10 @@ public class TankRoyale{
     
     public boolean allPlayersActive(){
         return players.stream().allMatch((p) -> p.active());
-        /*
-        for(Player p : players){
-            if(!p.active()){
-                return false;
-            }
-        }
-        return true;*/
     }
     
     public boolean allPlayersHaveMessage(){
-        for(Player p : players){
-            if(p.messageSize() == 0){
-                return false;
-            }
-        }
-        return true;
+        return players.stream().noneMatch((p) -> (p.messageSize() == 0));
     }
     
     public void stop(){
@@ -498,11 +486,7 @@ public class TankRoyale{
     }
     
     public void deactivatePlayers(){
-        for(Player p : players){
-            if(p != null){
-                p.deactivate();
-            }
-        }
+        players.stream().filter((p) -> p != null).forEach((p) -> p.deactivate());
     }
     
     public double distance(int x1, int y1, int x2, int y2){
