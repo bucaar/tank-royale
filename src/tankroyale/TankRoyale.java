@@ -1,6 +1,7 @@
 package tankroyale;
 
 import gameobjects.Entity;
+import gameobjects.Shot;
 import gameobjects.Tank;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -17,15 +18,23 @@ public class TankRoyale{
     private ServerSocket listener;
     
     private final ArrayList<Player> players;
+    private final ArrayList<Shot> shots;
+    
     private final int numberOfPlayers = 2;
     
-    private final int boardWidth = 10;
-    private final int boardHeight = 10;
+    public static final int BOARD_WIDTH = 10;
+    public static final int BOARD_HEIGHT = 10;
+    public static final int SHOT_DAMAGE = 10;
+    public static final int FUEL_COST = 1;
     
-    private final Pattern fasterPattern = Pattern.compile("FASTER(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
-    private final Pattern slowerPattern = Pattern.compile("SLOWER(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
+    private final Pattern waitPattern = Pattern.compile("WAIT(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
+    
+    private final Pattern forwardPattern = Pattern.compile("FORWARD(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
+    private final Pattern backwardPattern = Pattern.compile("BACKWARD(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     private final Pattern cwPattern = Pattern.compile("CW(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     private final Pattern ccwPattern = Pattern.compile("CCW(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
+    
+    private final Pattern shootPattern = Pattern.compile("SHOOT\\s+(?<x>\\d{1,2})\\s+(?<y>\\d{1,2})(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     
     public static int idCounter = 0;
     
@@ -33,29 +42,17 @@ public class TankRoyale{
         return listener;
     }
 
-    public Pattern getFasterPattern() {
-        return fasterPattern;
-    }
-
     public int getBoardWidth() {
-        return boardWidth;
+        return BOARD_WIDTH;
     }
 
     public int getBoardHeight() {
-        return boardHeight;
-    }
-
-    public TankRoyale(ServerSocket listener, ArrayList<Player> players) {
-        this.listener = listener;
-        this.players = players;
-    }
-
-    public TankRoyale(ArrayList<Player> players) {
-        this.players = players;
+        return BOARD_HEIGHT;
     }
     
     public TankRoyale(){
         players = new ArrayList<>();
+        shots = new ArrayList<>();
         
         try{
             listener = new ServerSocket(4949);
@@ -80,8 +77,8 @@ public class TankRoyale{
                 players.add(p);
                 
                 //create a tank
-                int x = Rand.randInt(1, boardWidth-1);
-                int y = Rand.randInt(1, boardHeight-1);
+                int x = Rand.randInt(1, BOARD_WIDTH-1);
+                int y = Rand.randInt(1, BOARD_HEIGHT-1);
                 int o = Rand.randInt(0, 3);
                 Tank tank = new Tank(x, y, o, p.getUserId());
                 
@@ -102,7 +99,7 @@ public class TankRoyale{
         
         //game loop
         while(allPlayersActive()){
-            //TODO: output the game turn
+            displayMap();
             givePlayersGameState();
             
             //wait for every player's input
@@ -135,15 +132,20 @@ public class TankRoyale{
             Tank tank = player.getTank();
             go.add(tank);
         }
-        //TODO add more 
-        //eg. DUST, SHOT, etc.
+        for(Shot shot : shots){
+            go.add(shot);
+        }
+        //TODO add more to the game output
+        //eg. DUST, etc.
         
         //the output
         StringBuilder out = new StringBuilder();
         
-        //add to the output - only visible entities
+        //get the source x and y - used for vision
         int sx = source.getxCoordinate();
         int sy = source.getyCoordinate();
+        
+        //add to the output - only visible entities
         boolean first = true;
         for(int i=0;i<go.size();i++){
             Entity e = go.get(i);
@@ -183,23 +185,33 @@ public class TankRoyale{
     public void doTurn(){
         //read in the players' messages and set the action
         for(Player p : players){
+            //grab the gank
             Tank tank = p.getTank();
+            //reset the action
+            tank.nothing();
+            
             String message = p.getMessage();
             
             System.out.println("Player " + p.getUserId() + ": " + message);
             
-            Matcher matchFaster = fasterPattern.matcher(message);
-            Matcher matchSlower = slowerPattern.matcher(message);
+            Matcher matchWait = waitPattern.matcher(message);
+            Matcher matchForward = forwardPattern.matcher(message);
+            Matcher matchBackward = backwardPattern.matcher(message);
             Matcher matchCW = cwPattern.matcher(message);
             Matcher matchCCW = ccwPattern.matcher(message);
+            Matcher matchShoot = shootPattern.matcher(message);
             
-            if(matchFaster.matches()){
-                tank.faster();
-                tank.setMessage(matchFaster.group("message"));
+            if(matchWait.matches()){
+                tank.nothing();
+                tank.setMessage(matchWait.group("message"));
             }
-            else if(matchSlower.matches()){
-                tank.slower();
-                tank.setMessage(matchSlower.group("message"));
+            else if(matchForward.matches()){
+                tank.forward();
+                tank.setMessage(matchForward.group("message"));
+            }
+            else if(matchBackward.matches()){
+                tank.backward();
+                tank.setMessage(matchBackward.group("message"));
             }
             else if(matchCW.matches()){
                 tank.rotateCW();
@@ -209,11 +221,19 @@ public class TankRoyale{
                 tank.rotateCCW();
                 tank.setMessage(matchCCW.group("message"));
             }
-            //TODO: FIRE, REVERSE
+            else if(matchShoot.matches()){
+                int x = Integer.parseInt(matchShoot.group("x"));
+                int y = Integer.parseInt(matchShoot.group("y"));
+                tank.shoot(x, y);
+                tank.setMessage(matchShoot.group("message"));
+            }
+            else{
+                //TODO: Invalid input message
+            }
         }
         
-        //process other commands not handled by moving and turning
-        //TODO: commands for FIRE, REVERSE, etc.
+        //handle shots fired - before moving/rotating
+        shootTanks();
         
         //handle moving
         moveTanks();
@@ -221,8 +241,67 @@ public class TankRoyale{
         //handle rotating
         rotateTanks();
         
-        //display map to console
-        displayMap();
+        //check for shots hit - after moving/rotating
+        checkShots();
+    }
+    
+    public void shootTanks(){
+        //TODO: shoot the shot!
+        
+        //for every tank, if their action is SHOOT
+        //then create a Shot at its location towards
+        //its shotX, shotY location
+        for(Player p : players){
+            Tank tank = p.getTank();
+            //we need ammo to shoot anyways
+            if(tank.getShotsLeft() == 0){
+                continue;
+            }
+            switch(tank.getAction()){
+                case SHOOT:
+                    int sx = tank.getxCoordinate();
+                    int sy = tank.getyCoordinate();
+                    int tx = tank.getShotX();
+                    int ty = tank.getShotY();
+                    
+                    int time = 1 + (int)Math.round(distance(sx, sy, tx, ty) / 3.0);
+                    Shot shot = new Shot(tank.getShotX(), tank.getShotY(), time, tank.getOwner());
+                    shots.add(shot);
+                    
+                    //tank shot, reduce ammo
+                    tank.reduceShots(1);
+                    break;
+                default:
+                    //Nothing necessary
+                    break;
+            }
+        }
+    }
+    
+    public void checkShots(){
+        //process all of the shots.
+        for(int i=0;i<shots.size();i++){
+            Shot shot = shots.get(i);
+            //decrease shot's turnsLeft by one
+            shot.decreaseTurnsLeft();
+            if(shot.getTurnsLeft() == -1){
+                shots.remove(i);
+                i--;
+            }
+            else if(shot.getTurnsLeft() == 0){
+                for(Player p : players){
+                    Tank tank = p.getTank();
+                    int tx = tank.getxCoordinate();
+                    int ty = tank.getyCoordinate();
+                    int sx = shot.getxCoordinate();
+                    int sy = shot.getyCoordinate();
+                    
+                    if(tx == sx && ty == sy){
+                        tank.reduceHealth(SHOT_DAMAGE);
+                    }
+                }
+            }
+        }
     }
     
     public void moveTanks(){
@@ -240,19 +319,32 @@ public class TankRoyale{
                 tank.setNewXCoordinate(newX);
                 tank.setNewYCoordinate(newY);
                 
-                if(i > tank.getSpeed()){
+                //if the tanks speed is too low for this loop
+                //or if the tank does not have fuel, skip
+                int s = tank.getSpeed();
+                if(i > Math.abs(s) || tank.getFuel() < FUEL_COST){
                     continue;
                 }
                 
                 int[] move = Tank.DIRECTIONS[o];
-                newX += move[0];
-                newY += move[1];
+                //if we are moving forward
+                if(s > 0){
+                    newX += move[0];
+                    newY += move[1];
+                }
+                //if we are moving backward
+                else if(s < 0){
+                    newX -= move[0];
+                    newY -= move[1];
+                }
                 
-                if(newX >= 0 && newX < boardWidth &&
-                        newY >= 0 && newY < boardHeight){
+                //if we are still on the map, then update new coords
+                if(newX >= 0 && newX < BOARD_WIDTH &&
+                        newY >= 0 && newY < BOARD_HEIGHT){
                     tank.setNewXCoordinate(newX);
                     tank.setNewYCoordinate(newY);
                 }
+                //off map, no new coords!!
                 else{
                     tank.setSpeed(0);
                 }
@@ -267,6 +359,7 @@ public class TankRoyale{
                     Tank t1 = tanks.get(a);
                     Tank t2 = tanks.get(b);
                     
+                    //if the new coords are overlapping, then add the collision
                     if(t1.getNewXCoordinate() == t2.getNewXCoordinate() &&
                             t1.getNewYCoordinate() == t2.getNewYCoordinate()){
                         collisions.add(t1);
@@ -277,15 +370,26 @@ public class TankRoyale{
             
             //undo any colliding tanks
             for(Tank t : collisions){
+                //undo new coordinate
                 t.setNewXCoordinate(t.getxCoordinate());
                 t.setNewYCoordinate(t.getyCoordinate());
+                //reset the speed after collision
                 t.setSpeed(0);
             }
             
             //update tank's positions
             for(Tank t : tanks){
-                t.setxCoordinate(t.getNewXCoordinate());
-                t.setyCoordinate(t.getNewYCoordinate());
+                int ox = t.getxCoordinate();
+                int oy = t.getyCoordinate();
+                int nx = t.getNewXCoordinate();
+                int ny = t.getNewYCoordinate();
+                
+                //if there has been a change, then reduce the fuel.
+                if(ox != nx || oy != ny){
+                    t.reduceFuel(FUEL_COST);
+                    t.setxCoordinate(t.getNewXCoordinate());
+                    t.setyCoordinate(t.getNewYCoordinate());
+                }
             }
         }
     }
@@ -304,10 +408,12 @@ public class TankRoyale{
                     o+=1;
                     break;
                 default:
+                    //no rotation necessary
                     break;
             }
             
-            if(o==-1){
+            //ensure orientation stays in [0-3]
+            if(o == -1){
                 o = 3;
             }
             else if(o == 4){
@@ -319,19 +425,36 @@ public class TankRoyale{
     }
     
     public void displayMap(){
-        char[][] map = new char[boardWidth][boardHeight];
-        for(int x=0;x<boardWidth;x++){
-            for(int y=0;y<boardHeight;y++){
+        char[][] map = new char[BOARD_WIDTH][BOARD_HEIGHT];
+        for(int x=0;x<BOARD_WIDTH;x++){
+            for(int y=0;y<BOARD_HEIGHT;y++){
                 map[x][y] = '.';
             }
         }
         for(Player p : players){
             Tank t = p.getTank();
-            map[t.getxCoordinate()][t.getyCoordinate()] = String.valueOf(p.getUserId()).charAt(0);
+            char symbol;
+            if(t.getId() == 1){
+                symbol = '\u2190';
+            }
+            else{
+                symbol = '\u21E6';
+            }
+            switch(t.getOrientation()){
+                case 3:
+                    symbol++;
+                case 0:
+                    symbol++;
+                case 1:
+                    symbol++;
+                case 2:
+                    break;
+            }
+            map[t.getxCoordinate()][t.getyCoordinate()] = symbol;
         }
         
-        for(int y=0;y<boardHeight;y++){
-            for(int x=0;x<boardWidth;x++){
+        for(int y=0;y<BOARD_HEIGHT;y++){
+            for(int x=0;x<BOARD_WIDTH;x++){
                 System.out.print(map[x][y]);
             }
             System.out.println("");
@@ -339,12 +462,14 @@ public class TankRoyale{
     }
     
     public boolean allPlayersActive(){
+        return players.stream().allMatch((p) -> p.active());
+        /*
         for(Player p : players){
             if(!p.active()){
                 return false;
             }
         }
-        return true;
+        return true;*/
     }
     
     public boolean allPlayersHaveMessage(){
@@ -374,6 +499,12 @@ public class TankRoyale{
                 p.deactivate();
             }
         }
+    }
+    
+    public double distance(int x1, int y1, int x2, int y2){
+        int x = x2 - x1;
+        int y = y2 - y1;
+        return Math.sqrt(x*x + y*y);
     }
     
     public static void main(String[] args) throws IOException{

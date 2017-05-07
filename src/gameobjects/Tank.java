@@ -1,5 +1,7 @@
 package gameobjects;
 
+import tankroyale.TankRoyale;
+
 /**
  *
  * @author aaron
@@ -18,6 +20,9 @@ public class Tank extends Entity{
     protected int newXCoordinate;
     protected int newYCoordinate;
     
+    protected int shootX;
+    protected int shootY;
+    
     protected String message;
     protected Action action;
     
@@ -30,7 +35,7 @@ public class Tank extends Entity{
     };
     
     public static enum Action {
-        FASTER, SLOWER, CW, CCW, WAIT
+        FORWARD, BACKWARD, CW, CCW, SHOOT, NOTHING
     }
     
     public Tank(int xCoordinate, int yCoordinate, int orientation, int owner){
@@ -46,7 +51,7 @@ public class Tank extends Entity{
         this.orientation = orientation;
         
         this.message = "";
-        this.action = Action.WAIT;
+        this.action = Action.NOTHING;
     }
     
     public void rotateCW(){
@@ -57,18 +62,42 @@ public class Tank extends Entity{
         this.action = Action.CCW;
     }
     
-    public void faster(){
-        this.action = Action.FASTER;
+    public void nothing(){
+        this.action = Action.NOTHING;
+    }
+    
+    public void forward(){
+        this.action = Action.FORWARD;
         if(this.speed < MAX_SPEED){
             speed++;
         }
     }
     
-    public void slower(){
-        this.action = Action.SLOWER;
-        if(this.speed > 0){
+    public void backward(){
+        this.action = Action.BACKWARD;
+        if(this.speed > -MAX_SPEED){
             speed--;
         }
+    }
+    
+    public void shoot(int x, int y){
+        //TODO: distance of shot?
+        
+        //if x, y is in the map, set the action
+        if(x >= 0 && x < TankRoyale.BOARD_WIDTH &&
+                y >= 0 && y < TankRoyale.BOARD_HEIGHT){
+            this.action = Action.SHOOT;
+            this.shootX = x;
+            this.shootY = y;
+        }
+    }
+    
+    public void reduceHealth(int h){
+        this.healthLevel -= h;
+    }
+    
+    public void reduceFuel(int f){
+        this.fuelLevel -= f;
     }
     
     public String getMessage(){
@@ -110,9 +139,37 @@ public class Tank extends Entity{
     public void setSpeed(int speed) {
         this.speed = speed;
     }
+
+    public int getShotX() {
+        return shootX;
+    }
+
+    public int getShotY() {
+        return shootY;
+    }
+    
+    public int getHealth(){
+        return healthLevel;
+    }
+    
+    public int getFuel(){
+        return fuelLevel;
+    }
     
     public Action getAction(){
         return action;
+    }
+    
+    public int getOwner(){
+        return owner;
+    }
+    
+    public int getShotsLeft(){
+        return remainingShots;
+    }
+    
+    public void reduceShots(int s){
+        remainingShots -= s;
     }
     
     public String toPlayerOutput(){
