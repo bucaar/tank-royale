@@ -24,7 +24,7 @@ public class TankRoyale{
     
     public static final int BOARD_WIDTH = 10;
     public static final int BOARD_HEIGHT = 10;
-    public static final int SHOT_DAMAGE = 10;
+    public static final int SHOT_DAMAGE = 25;
     public static final int FUEL_COST = 1;
     
     private final Pattern waitPattern = Pattern.compile("WAIT(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
@@ -319,10 +319,14 @@ public class TankRoyale{
                 tank.setNewXCoordinate(newX);
                 tank.setNewYCoordinate(newY);
                 
-                //if the tanks speed is too low for this loop
-                //or if the tank does not have fuel, skip
+                //if we are out of fuel, set the speed to 0
+                if(tank.getFuel() < FUEL_COST){
+                    tank.setSpeed(0);
+                }
+                
+                //if the tanks speed is too low for this loop, skip
                 int s = tank.getSpeed();
-                if(i > Math.abs(s) || tank.getFuel() < FUEL_COST){
+                if(i > Math.abs(s)){
                     continue;
                 }
                 
