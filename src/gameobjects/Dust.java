@@ -1,5 +1,7 @@
 package gameobjects;
 
+import tankroyale.TankRoyale;
+
 /**
  *
  * @author aaron
@@ -12,7 +14,7 @@ public class Dust extends Entity{
         super(xCoordinate, yCoordinate);
         this.type = Type.DUST;
         
-        this.turnsLeft = 3;
+        this.turnsLeft = TankRoyale.DUST_TIME;
     }
     
     public void settle(){

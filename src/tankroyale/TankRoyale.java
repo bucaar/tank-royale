@@ -1,5 +1,7 @@
 package tankroyale;
 
+import exceptions.GameOverException;
+import gameobjects.Dust;
 import gameobjects.Entity;
 import gameobjects.Shot;
 import gameobjects.Tank;
@@ -19,13 +21,22 @@ public class TankRoyale{
     
     private final ArrayList<Player> players;
     private final ArrayList<Shot> shots;
+    private final ArrayList<Dust> dusts;
     
     private final int numberOfPlayers = 2;
     
+    public static final int START_FUEL = 100;
+    public static final int START_HEALTH = 100;
+    public static final int START_SHOTS = 25;
+    public static final int DUST_TIME = 2;
+    
     public static final int BOARD_WIDTH = 10;
     public static final int BOARD_HEIGHT = 10;
+    
     public static final int SHOT_DAMAGE = 25;
-    public static final int FUEL_COST = 1;
+    public static final int MOVE_COST = 2;
+    public static final int ROTATE_COST = 1;
+    public static final int SHOT_COST = 1;
     
     private final Pattern waitPattern = Pattern.compile("WAIT(?:\\s+(?<message>.+))?", Pattern.CASE_INSENSITIVE);
     
@@ -53,6 +64,7 @@ public class TankRoyale{
     public TankRoyale(){
         players = new ArrayList<>();
         shots = new ArrayList<>();
+        dusts = new ArrayList<>();
         
         try{
             listener = new ServerSocket(4949);
@@ -62,13 +74,10 @@ public class TankRoyale{
         }
     }
     
-    public void start(){
+    public void start() throws GameOverException{
         if(listener == null){
-            System.out.println("No active listener. Ending game.");
-            return;
+            throw new GameOverException(GameOverException.Reason.SERVER);
         }
-        
-        System.out.println("Starting Tank Royale");
         
         try{
             //gather the players
@@ -108,8 +117,7 @@ public class TankRoyale{
                     try{
                         this.wait();
                     }
-                    catch(InterruptedException e){
-                    }
+                    catch(InterruptedException e){ }
                 }
             }
             
@@ -121,8 +129,6 @@ public class TankRoyale{
             //complete the rest of this turn
             doTurn();
         }
-        
-        System.out.println("End of Tank Royale!");
     }
     
     public String getGameState(Tank source){
@@ -135,8 +141,9 @@ public class TankRoyale{
         for(Shot shot : shots){
             go.add(shot);
         }
-        //TODO add more to the game output
-        //eg. DUST, etc.
+        for(Dust dust : dusts){
+            go.add(dust);
+        }
         
         //the output
         StringBuilder out = new StringBuilder();
@@ -182,14 +189,44 @@ public class TankRoyale{
         }
     }
     
-    public void doTurn(){
+    public void isGameOver() throws GameOverException{
+        GameOverException e = null;
+        
+        //both tanks out of health -> stalemate
+        if(players.stream().allMatch((p) -> 
+                p.getTank().getHealth() <= 0)){
+            e = new GameOverException(GameOverException.Reason.STALEMATE);
+            
+        }
+        //one tank out of health -> victory
+        else if(players.stream().anyMatch((p) ->
+                p.getTank().getHealth() <= 0)){
+            e = new GameOverException(GameOverException.Reason.OUT_OF_HEALTH);
+        }
+        //all tanks out of fuel and shots -> no moves
+        else if(players.stream().allMatch((p) -> 
+                p.getTank().getHealth() <= 0 && p.getTank().getShotsLeft() <= 0)){
+            e = new GameOverException(GameOverException.Reason.NO_MOVES);
+        }
+        
+        if(e != null){
+            throw e;
+        }
+    }
+    
+    public void doTurn() throws GameOverException{
+        //check for game over
+        isGameOver();
+
         //read in the players' messages and set the action
         for(Player p : players){
             //grab the gank
             Tank tank = p.getTank();
+            
             //reset the action
             tank.nothing();
             
+            //get the command from the player
             String message = p.getMessage();
             
             System.out.println("Player " + p.getUserId() + ": " + message);
@@ -228,7 +265,8 @@ public class TankRoyale{
                 tank.setMessage(matchShoot.group("message"));
             }
             else{
-                //TODO: Invalid input message
+                //Invalid input message
+                throw new GameOverException(GameOverException.Reason.INVALID_COMMAND);
             }
         }
         
@@ -241,35 +279,38 @@ public class TankRoyale{
         //handle rotating
         rotateTanks();
         
+        //tick the dust for this turn - before shots land
+        settleDust();
+        
         //check for shots hit - after moving/rotating
         checkShots();
     }
     
     public void shootTanks(){
-        //TODO: shoot the shot!
-        
         //for every tank, if their action is SHOOT
         //then create a Shot at its location towards
         //its shotX, shotY location
         for(Player p : players){
             Tank tank = p.getTank();
-            //we need ammo to shoot anyways
-            if(tank.getShotsLeft() == 0){
-                continue;
-            }
             switch(tank.getAction()){
                 case SHOOT:
+                    //we need ammo to shoot
+                    if(tank.getShotsLeft() < SHOT_COST){
+                        continue;
+                    }
+                    
+                    //source and target
                     int sx = tank.getxCoordinate();
                     int sy = tank.getyCoordinate();
                     int tx = tank.getShotX();
                     int ty = tank.getShotY();
                     
-                    int time = 1 + (int)Math.round(distance(sx, sy, tx, ty) / 3.0);
+                    int time = 2 + (int)Math.round(distance(sx, sy, tx, ty) / 4.0);
                     Shot shot = new Shot(tank.getShotX(), tank.getShotY(), time, tank.getOwner());
                     shots.add(shot);
                     
                     //tank shot, reduce ammo
-                    tank.reduceShots(1);
+                    tank.reduceShots(SHOT_COST);
                     break;
                 default:
                     //Nothing necessary
@@ -284,11 +325,10 @@ public class TankRoyale{
             Shot shot = shots.get(i);
             //decrease shot's turnsLeft by one
             shot.decreaseTurnsLeft();
-            if(shot.getTurnsLeft() == -1){
-                shots.remove(i);
-                i--;
-            }
-            else if(shot.getTurnsLeft() == 0){
+            
+            //if it is landing:
+            if(shot.getTurnsLeft() == 0){
+                //see if it hit a player
                 for(Player p : players){
                     Tank tank = p.getTank();
                     int tx = tank.getxCoordinate();
@@ -300,6 +340,27 @@ public class TankRoyale{
                         tank.reduceHealth(SHOT_DAMAGE);
                     }
                 }
+                //create a dust cloud here
+                Dust cloud = new Dust(shot.getxCoordinate(), shot.getyCoordinate());
+                
+                //add the cloud to the list
+                dusts.add(cloud);
+                
+                //the shot has landed, so remove it.
+                shots.remove(i);
+                i--;
+            }
+        }
+    }
+    
+    public void settleDust(){
+        for(int i=0;i<dusts.size();i++){
+            Dust d = dusts.get(i);
+            d.settle();
+            
+            if(d.isSettled()){
+                dusts.remove(i);
+                i--;
             }
         }
     }
@@ -320,7 +381,7 @@ public class TankRoyale{
                 tank.setNewYCoordinate(newY);
                 
                 //if we are out of fuel, set the speed to 0
-                if(tank.getFuel() < FUEL_COST){
+                if(tank.getFuel() < MOVE_COST){
                     tank.setSpeed(0);
                 }
                 
@@ -390,7 +451,7 @@ public class TankRoyale{
                 
                 //if there has been a change, then reduce the fuel.
                 if(ox != nx || oy != ny){
-                    t.reduceFuel(FUEL_COST);
+                    t.reduceFuel(MOVE_COST);
                     t.setxCoordinate(t.getNewXCoordinate());
                     t.setyCoordinate(t.getNewYCoordinate());
                 }
@@ -424,7 +485,12 @@ public class TankRoyale{
                 o = 0;
             }
             
-            tank.setOrientation(o);
+            //rotate if we have the fuel to do so.
+            if(tank.getFuel() >= ROTATE_COST &&
+                    tank.getOrientation() != o){
+                tank.setOrientation(o);
+                tank.reduceFuel(ROTATE_COST);
+            }
         }
     }
     
@@ -455,6 +521,12 @@ public class TankRoyale{
                     break;
             }
             map[t.getxCoordinate()][t.getyCoordinate()] = symbol;
+        }
+        for(Dust d : dusts){
+            map[d.getxCoordinate()][d.getyCoordinate()] = 'X';
+        }
+        for(Shot s : shots){
+            map[s.getxCoordinate()][s.getyCoordinate()] = '+';
         }
         
         for(int y=0;y<BOARD_HEIGHT;y++){
@@ -497,7 +569,31 @@ public class TankRoyale{
     
     public static void main(String[] args) throws IOException{
         TankRoyale game = new TankRoyale();
-        game.start();
+        System.out.println("Starting Tank Royale");
+        try{
+            game.start();
+        }
+        catch(GameOverException e){
+            System.out.println("Game over:");
+            switch(e.getReason()){
+                case SERVER:
+                    System.out.println("There was an issue with the server");
+                    break;
+                case INVALID_COMMAND:
+                    System.out.println("Invalid Command");
+                    break;
+                case NO_MOVES:
+                    System.out.println("All tanks out of fuel and shots");
+                    break;
+                case OUT_OF_HEALTH:
+                    System.out.println("Tank out of health");
+                    break;
+                case STALEMATE:
+                    System.out.println("Tie");
+                    break;
+            }
+        }
+        System.out.println("End of Tank Royale!");
         game.stop();
     }
     

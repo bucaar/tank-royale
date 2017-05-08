@@ -43,9 +43,9 @@ public class Tank extends Entity{
         this.type = Type.TANK;
         this.owner = owner;
         
-        this.fuelLevel = 100;
-        this.healthLevel = 100;
-        this.remainingShots = 25;
+        this.fuelLevel = TankRoyale.START_FUEL;
+        this.healthLevel = TankRoyale.START_HEALTH;
+        this.remainingShots = TankRoyale.START_SHOTS;
         
         this.speed = 0;
         this.orientation = orientation;
@@ -81,8 +81,6 @@ public class Tank extends Entity{
     }
     
     public void shoot(int x, int y){
-        //TODO: distance of shot?
-        
         //if x, y is in the map, set the action
         if(x >= 0 && x < TankRoyale.BOARD_WIDTH &&
                 y >= 0 && y < TankRoyale.BOARD_HEIGHT){
